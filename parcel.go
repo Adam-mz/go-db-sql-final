@@ -2,6 +2,7 @@ package main
 
 import (
 	"database/sql"
+	"fmt"
 )
 
 type ParcelStore struct {
@@ -16,13 +17,14 @@ func (s ParcelStore) Add(p Parcel) (int, error) {
 	query := `INSERT INTO parcel (client, status, address, created_at) VALUES (?, ?, ?, ?)`
 	result, err := s.db.Exec(query, p.Client, p.Status, p.Address, p.CreatedAt)
 	if err != nil {
-		return 0, err
+		return 0, fmt.Errorf("failed to execute query: %w", err)
 	}
 
 	id, err := result.LastInsertId()
 	if err != nil {
-		return 0, err
+		return 0, fmt.Errorf("failed to get last insert ID: %w", err)
 	}
+
 	return int(id), nil
 }
 
@@ -42,7 +44,7 @@ func (s ParcelStore) GetByClient(client int) ([]Parcel, error) {
 	query := `SELECT number, client, status, address, created_at FROM parcel WHERE client = ?`
 	rows, err := s.db.Query(query, client)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to execute query: %w", err)
 	}
 	defer rows.Close()
 
@@ -50,10 +52,16 @@ func (s ParcelStore) GetByClient(client int) ([]Parcel, error) {
 	for rows.Next() {
 		var p Parcel
 		if err := rows.Scan(&p.Number, &p.Client, &p.Status, &p.Address, &p.CreatedAt); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to scan row: %w", err)
 		}
 		parcels = append(parcels, p)
 	}
+
+	// Проверка на наличие ошибок после итерации
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error occurred during rows iteration: %w", err)
+	}
+
 	return parcels, nil
 }
 
